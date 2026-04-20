@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+output/*.json
+output/*.txt
+!output/.gitkeep
+*.log
+.DS_Store
