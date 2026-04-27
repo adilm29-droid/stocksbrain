@@ -1,0 +1,40 @@
+name: Halal Universe Refresh
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'  # Sun 8:00 AM Dubai (UTC+4)
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Refresh halal universe
+        run: |
+          python -c "
+          from intelligence.halal_screener import refresh_halal_universe
+          refresh_halal_universe()
+          print('Halal universe refreshed')
+          " 2>&1 || echo "Halal screener not yet available, skipping"
+
+      - name: Commit output
+        run: |
+          git config user.name "StocksBrain Bot"
+          git config user.email "bot@stocksbrain.local"
+          git add output/ || true
+          git diff --cached --quiet || git commit -m "Halal universe refresh $(date -u '+%Y-%m-%d')"
+          git push || true

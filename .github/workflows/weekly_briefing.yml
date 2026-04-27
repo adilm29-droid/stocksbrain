@@ -1,12 +1,12 @@
-name: StocksBrain Daily Run
+name: StocksBrain Weekly Briefing
 
 on:
   schedule:
-    - cron: '0 22 * * 0-4'  # Mon-Fri 2:00 AM Dubai (UTC+4)
+    - cron: '0 2 * * 1'  # Mon 6:00 AM Dubai (UTC+4)
   workflow_dispatch:
 
 jobs:
-  run:
+  briefing:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,13 +23,13 @@ jobs:
       - name: Install dependencies
         run: pip install yfinance requests beautifulsoup4 pandas numpy
 
-      - name: Run StocksBrain
-        run: python orchestrator.py
+      - name: Run weekly briefing
+        run: python -c "from orchestrator import main; main()" 2>&1
 
       - name: Commit output
         run: |
           git config user.name "StocksBrain Bot"
           git config user.email "bot@stocksbrain.local"
           git add output/
-          git diff --cached --quiet || git commit -m "StocksBrain daily run $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git diff --cached --quiet || git commit -m "Weekly briefing $(date -u '+%Y-%m-%d')"
           git push

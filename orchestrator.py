@@ -14,13 +14,41 @@ from data_sources.prices import get_price_data
 from data_sources.analysts import get_analyst_data
 from data_sources.insiders import get_insider_activity
 from data_sources.news import get_news_sentiment
-from data_sources.macro import get_macro_data
+try:
+    from intelligence.macro import get_macro_intelligence as get_macro_data_v6
+    USE_V6_MACRO = True
+except ImportError:
+    from data_sources.macro import get_macro_data
+    USE_V6_MACRO = False
 from data_sources.options import get_options_flow
 from analysis.scorer import score_holding
 from analysis.risk_reviewer import review_portfolio_risk
 from analysis.bug_hunter import hunt_contradictions
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+
+
+def _get_earnings_next_7_days(tickers: list) -> list:
+    """Get tickers with earnings in next 7 days from verified calendar."""
+    from datetime import datetime, timedelta
+    try:
+        from config import EARNINGS_CALENDAR
+        today = datetime.utcnow().date()
+        cutoff = today + timedelta(days=7)
+        result = []
+        for ticker in tickers:
+            if ticker in EARNINGS_CALENDAR:
+                entry = EARNINGS_CALENDAR[ticker]
+                if not entry.get("reported", False):
+                    try:
+                        d = datetime.strptime(entry["date"], "%Y-%m-%d").date()
+                        if today <= d <= cutoff:
+                            result.append(ticker)
+                    except Exception:
+                        pass
+        return result
+    except Exception:
+        return []
 
 
 def fetch_all_data(ticker):
@@ -49,7 +77,11 @@ def main():
 
     # Fetch macro data
     print("Fetching macro data...", file=sys.stderr)
-    macro = get_macro_data() or {}
+    if USE_V6_MACRO:
+        macro = get_macro_data_v6() or {}
+    else:
+        from data_sources.macro import get_macro_data
+        macro = get_macro_data() or {}
 
     # Calculate portfolio metrics
     tickers = list(HOLDINGS.keys())
@@ -102,7 +134,8 @@ def main():
         "cash_pct": cash_pct,
         "tech_pct": tech_value / total_value * 100 if total_value > 0 else 0,
         "crypto_pct": crypto_value / total_value * 100 if total_value > 0 else 0,
-        "earnings_next_7_days": [],  # Would come from earnings calendar
+        "earnings_next_7_days": _get_earnings_next_7_days(tickers),
+        "cash_usd": 348.0,  # Updated after AMD trim Apr 28, 2026
         "autopilot_tickers": set(AUTOPILOT_PORTFOLIOS.keys()),
         "direct_tickers": set(tickers),
     }

@@ -1,12 +1,12 @@
-name: StocksBrain Daily Run
+name: StocksBrain Pre-Market Quick Check
 
 on:
   schedule:
-    - cron: '0 22 * * 0-4'  # Mon-Fri 2:00 AM Dubai (UTC+4)
+    - cron: '0 9 * * 1-5'  # Mon-Fri 1:00 PM Dubai (UTC+4)
   workflow_dispatch:
 
 jobs:
-  run:
+  check:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,15 +21,15 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install yfinance requests beautifulsoup4 pandas numpy
+        run: pip install yfinance requests
 
-      - name: Run StocksBrain
-        run: python orchestrator.py
+      - name: Run quick check
+        run: python quick_check.py
 
       - name: Commit output
         run: |
           git config user.name "StocksBrain Bot"
           git config user.email "bot@stocksbrain.local"
           git add output/
-          git diff --cached --quiet || git commit -m "StocksBrain daily run $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git diff --cached --quiet || git commit -m "Pre-market check $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push

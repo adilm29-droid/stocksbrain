@@ -142,14 +142,15 @@ def score_holding(
         score -= 1
         score_breakdown.append(f"-1 Thesis-break flags: {', '.join(thesis_break_flags[:3])}")
 
-    # 6. Large gain with sell signal already triggered
-    existing_sell_count = sum([rsi_ob, pe_doubled, analyst_weak, concentration_risky, thesis_broken])
-    large_gain_sell = (gain_pct > THRESHOLDS["gain_trim_threshold"]) and (existing_sell_count >= 1)
+    # 6. Large gain only penalised when thesis is genuinely broken
+    # (guidance cut / CEO change / regulatory) — not for pure technical signals.
+    # This prevents winners from flipping to SELL just because RSI ran hot.
+    large_gain_sell = (gain_pct > THRESHOLDS["gain_trim_threshold"]) and thesis_broken
     signals["large_gain_with_sell_signal"] = large_gain_sell
     if large_gain_sell:
         score -= 1
         score_breakdown.append(
-            f"-1 Large gain ({gain_pct:.1f}%) combined with active sell signal"
+            f"-1 Large gain ({gain_pct:.1f}%) combined with thesis-break signal"
         )
 
     # Flag core ETF membership (used by bug_hunter)
