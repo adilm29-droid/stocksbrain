@@ -1,6 +1,5 @@
 {
-  "hit_rate": null,
-  "hit_rate_pct": null,
-  "note": "Run `python backtest/replay.py` or wait for weekly_backtest.yml to populate this file.",
-  "generated_at": null
+  "error": "Insufficient price data \u2014 need \u22653 tickers with 2y history",
+  "hit_rate": 0.0,
+  "hit_rate_pct": 0.0
 }
