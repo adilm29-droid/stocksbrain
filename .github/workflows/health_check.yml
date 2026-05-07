@@ -1,0 +1,97 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check StocksBrain freshness
+        id: check
+        run: |
+          DATA=$(curl -sf "https://raw.githubusercontent.com/adilm29-droid/stocksbrain/main/output/dashboard.json" || echo "{}")
+          LAST_RUN=$(echo "$DATA" | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+              print(d.get('generated_at', ''))
+          except:
+              print('')
+          ")
+          if [ -z "$LAST_RUN" ]; then
+            echo "stale=true" >> $GITHUB_OUTPUT
+            echo "age_hours=999" >> $GITHUB_OUTPUT
+          else
+            AGE_HOURS=$(python3 -c "
+          from datetime import datetime
+          ts = '$LAST_RUN'.replace('Z','')
+          try:
+              dt = datetime.fromisoformat(ts)
+              age = (datetime.utcnow() - dt).total_seconds() / 3600
+              print(int(age))
+          except:
+              print(999)
+          ")
+            echo "age_hours=$AGE_HOURS" >> $GITHUB_OUTPUT
+            if [ "$AGE_HOURS" -gt 36 ]; then
+              echo "stale=true" >> $GITHUB_OUTPUT
+            else
+              echo "stale=false" >> $GITHUB_OUTPUT
+              echo "System is fresh ($AGE_HOURS h old)"
+            fi
+          fi
+
+      - name: Open GitHub issue if stale
+        if: steps.check.outputs.stale == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const hours = '${{ steps.check.outputs.age_hours }}';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'system-down',
+              state: 'open',
+            });
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[system-down] StocksBrain stale — last run ${hours}h ago`,
+                body: `StocksBrain has not updated in **${hours} hours**.\n\nThe daily pipeline may be broken. Check:\nhttps://github.com/${{ github.repository }}/actions`,
+                labels: ['system-down'],
+              });
+              core.info(`Opened system-down issue`);
+            } else {
+              core.info(`system-down issue already open — skipping`);
+            }
+
+      - name: Email alert if stale
+        if: steps.check.outputs.stale == 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "No RESEND_API_KEY secret — skipping email"
+            exit 0
+          fi
+          AGE=${{ steps.check.outputs.age_hours }}
+          python3 -c "
+          import requests, os
+          age = '$AGE'
+          r = requests.post(
+              'https://api.resend.com/emails',
+              headers={'Authorization': f'Bearer {os.environ[\"RESEND_API_KEY\"]}', 'Content-Type': 'application/json'},
+              json={
+                  'from': 'StocksBrain <alerts@resend.dev>',
+                  'to': ['adilm29@gmail.com'],
+                  'subject': f'[StocksBrain] SYSTEM DOWN — {age}h since last run',
+                  'html': f'<p>StocksBrain has not updated in <strong>{age} hours</strong>.</p><p>Check <a href=\"https://github.com/adilm29-droid/stocksbrain/actions\">GitHub Actions</a>.</p>',
+              },
+              timeout=10,
+          )
+          print(r.status_code, r.text[:200])
+          "

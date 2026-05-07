@@ -33,3 +33,10 @@ jobs:
           git add output/
           git diff --cached --quiet || git commit -m "StocksBrain daily run $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
+
+      - name: Run monitor after daily run
+        run: python -m monitor.run
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        continue-on-error: true

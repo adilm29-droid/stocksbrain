@@ -1,0 +1,76 @@
+name: Weekly Backtest
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'  # Sundays 6:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run backtest
+        run: python backtest/replay.py
+
+      - name: Run journal evaluator
+        run: python evaluate_journal.py
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backtest/results.json logs/accuracy.jsonl || true
+          git diff --cached --quiet && echo "No changes" || \
+            git commit -m "chore: weekly backtest + accuracy update [skip ci]"
+          git push || echo "Nothing to push"
+
+      - name: Email backtest results
+        if: always()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "No RESEND_API_KEY — skipping email"
+            exit 0
+          fi
+          python3 -c "
+          import json, requests, os
+          try:
+              with open('backtest/results.json') as f:
+                  r = json.load(f)
+              hit = r.get('hit_rate_pct', 0)
+              spus = r.get('spus_total_return_pct', 0)
+              dd = r.get('max_drawdown', 0)
+              warn = r.get('warning') or ''
+              body = f'Hit Rate: {hit}%\nSPUS return: {spus}%\nMax drawdown: {dd:.1%}\n{warn}'
+              subj = f'Weekly Backtest — {hit}% hit rate'
+          except Exception as e:
+              body = f'Backtest failed: {e}'
+              subj = 'Weekly Backtest — ERROR'
+          requests.post(
+              'https://api.resend.com/emails',
+              headers={'Authorization': f'Bearer {os.environ[\"RESEND_API_KEY\"]}', 'Content-Type': 'application/json'},
+              json={
+                  'from': 'StocksBrain <alerts@resend.dev>',
+                  'to': ['adilm29@gmail.com'],
+                  'subject': f'[StocksBrain] {subj}',
+                  'html': f'<pre>{body}</pre>',
+              },
+              timeout=10,
+          )
+          "
