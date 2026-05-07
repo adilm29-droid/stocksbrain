@@ -15,3 +15,5 @@ output/*.txt
 .vercel/
 .pytest_cache/
 node_modules/
+alerts/*.md
+!alerts/.gitkeep
