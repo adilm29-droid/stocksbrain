@@ -34,6 +34,7 @@ AUTOPILOT_PORTFOLIOS = {
     "Architects of AI": {"total_value": 6012.93, "total_cost": 5800},
     "FATMAA": {"total_value": 5956.48, "total_cost": 5800},
     "Dividend Stocks": {"total_value": 6193.79, "total_cost": 5800},
+    "Magnificent 7": {"total_value": 6000.00, "total_cost": 5800},
 }
 
 CORE_ETF_TICKERS = {"SPUS", "URTH", "HLAL"}
@@ -75,7 +76,9 @@ EARNINGS_CALENDAR = {
     "AMZN": {"date": "2026-04-29", "timing": "AMC", "reported": False},
     "TSLA": {"date": "2026-04-22", "timing": "AMC", "reported": True},
     "UNH":  {"date": "2026-04-21", "timing": "BMO", "reported": True},
-    "AMD":  {"date": "2026-05-05", "timing": "AMC", "reported": False},
-    "NVDA": {"date": "2026-05-28", "timing": "AMC", "reported": False},
-    "PLTR": {"date": "2026-05-05", "timing": "AMC", "reported": False},
+    "AMD":  {"date": "2026-05-05", "timing": "AMC", "reported": True},
+    "NVDA": {"date": "2026-05-20", "timing": "AMC", "reported": False},
+    "PLTR": {"date": "2026-05-05", "timing": "AMC", "reported": True},
+    "KO":   {"date": "2026-07-22", "timing": "BMO", "reported": False},
+    "NKE":  {"date": "2026-06-26", "timing": "AMC", "reported": False},
 }

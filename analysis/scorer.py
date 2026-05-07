@@ -199,6 +199,8 @@ def score_holding(
         if decision != "HOLD":
             overlays_applied.append(f"earnings_freeze_{decision}_to_HOLD")
             decision = "HOLD"
+        else:
+            overlays_applied.append("earnings_freeze_already_HOLD")
 
     # Overlay 3: Low cash + BUY — keep BUY but add note
     cash_pct = portfolio_metrics.get("cash_pct", 100.0)

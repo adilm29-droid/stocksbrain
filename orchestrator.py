@@ -27,6 +27,12 @@ from analysis.scorer import score_holding
 from analysis.risk_reviewer import review_portfolio_risk
 from analysis.bug_hunter import hunt_contradictions
 
+try:
+    from rules_engine.v5_check import check_all_rules as v5_check_all
+    HAS_V5 = True
+except Exception:
+    HAS_V5 = False
+
 # v2 modules — each imports lazily so a missing dep never kills the run
 try:
     from analysis.halal_filter import apply_halal_gate
@@ -407,9 +413,35 @@ def main():
         "sell_count": decisions.count("SELL"),
     }
 
-    # Build enriched recommendations list for UI
-    recommendations = [
-        {
+    # Build enriched recommendations list for UI (with V5 rule checks)
+    recommendations = []
+    for h in scored:
+        v5_results = []
+        if HAS_V5:
+            try:
+                v5_results = v5_check_all(
+                    portfolio={
+                        "total_value": total_value,
+                        "cash_pct": cash_pct,
+                        "positions": {
+                            h["ticker"]: {
+                                "position_pct": h.get("position_pct", 0),
+                                "gain_pct": h.get("gain_pct", 0),
+                            }
+                        },
+                    },
+                    ticker=h["ticker"],
+                    action=h.get("decision", "HOLD"),
+                    context={
+                        "earnings_next_7_days": portfolio_metrics.get("earnings_next_7_days", []),
+                        "data_points_count": 8,
+                    },
+                )
+            except Exception:
+                pass
+
+        v5_violations = [r for r in v5_results if r["status"] == "violation"]
+        recommendations.append({
             "ticker": h["ticker"],
             "action": h.get("decision", "HOLD"),
             "score": h.get("score", 0),
@@ -422,9 +454,10 @@ def main():
             "vol_percentile": (h.get("vol_forecast") or {}).get("volatility_percentile"),
             "sharpe": (h.get("math_metrics") or {}).get("sharpe_1y"),
             "government_tailwind": gov_contracts.get(h["ticker"], {}).get("government_tailwind", False),
-        }
-        for h in scored
-    ]
+            "v5_checks": v5_results,
+            "v5_violations": len(v5_violations),
+        })
+
 
     dashboard = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
